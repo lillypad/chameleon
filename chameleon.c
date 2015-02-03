@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 //Single Byte Data Structure
 struct byteStruct{char byte;};
@@ -23,7 +24,7 @@ void usage(){
 	printf("\\/ __ .- |\n");
 	printf(" // //  @\n");
 	printf("Version: 0.1b\n");
-	printf("Usage: chameleon (--encode || --decode) -i input_file -o output_file --std-out --ccs --about\n--encode = encode mode\n--decode = decode mode\n-i       = input file\n-o       = output file\n-ccs     = custom character set (64 unique chars)\n--about  = about screen\n");
+	printf("Usage: chameleon (--encode || --decode) -i input_file -o output_file --std-out --ccs --about --rand_key\n--encode   = encode mode\n--decode   = decode mode\n-i         = input file\n-o         = output file\n-ccs       = custom character set (64 unique chars)\n--about    = about screen\n--rand_key = Generates random base 64 key\n");
 }
 
 void about(){
@@ -119,8 +120,44 @@ int bin2dec(int binaryNumber){
 	return decimalNumber;
 }
 
+const char *rand_key(){
+	char base64[64] = {'A', 'B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/'};
+	char base64custom[64];
+	static char final[64];
+	int i = 0;
+	int j = 0;
+	int k = 0;
+	int r;
+	int retry = 0;
+	srand( (unsigned)time( NULL ) );
+	for (i = 0; i <= 63; i++){
+		for (k = 0; k <= rand(); k++){
+			r = rand() % 64;
+		}
+		base64custom[i] = base64[r];
+		for (j = 0; j <= 63; j++){
+			if (i != j){
+				if ((char)base64custom[i] == (char)base64custom[j]){
+					retry = 1;
+				}
+			}
+		}
+		if (retry == 1){
+			retry = 0;
+			i--;
+		}
+	}
+
+	i = 0;
+	for (i = 0; i <= 63; i++){
+		final[i] = base64custom[i];
+	}
+	return final;
+}
+
 //Main Program
 int main(int argc, char *argv[]){
+	//Global Variables
 	int i;
 	int j;
 
@@ -153,6 +190,7 @@ int main(int argc, char *argv[]){
 	int decode_loop = 0;
 	int encode_decode = 0;
 	int boolCustomCharSet = 0;
+	int random_key = 0;
 	static const char *base64custom;
 	//static const char *base64custom2;
 	int custom_loop = 0;
@@ -174,6 +212,11 @@ int main(int argc, char *argv[]){
 			}
 			if (strcmp(argv[i], "--std-out") == 0){
 				stdout = 1;
+			}
+			if (strcmp(argv[i], "--rand_key") == 0){
+				random_key = 1;
+				printf("%s\n", rand_key());
+				return 0;
 			}
 			//Custom Character Set Handler
 			if (strcmp(argv[i], "-ccs") == 0){
@@ -291,9 +334,6 @@ int main(int argc, char *argv[]){
 								printf("%c",dec);
 							}
 							if (outfile == 1){
-								if (stdout != 1){
-									progressBar(pos, getFileSize(ptrInputFile)-3);
-								}
 								fwrite (&dec, 1, 1, ptrOutputFile);
 							}
 							memset(bin, 0, strlen(bin));
@@ -301,6 +341,7 @@ int main(int argc, char *argv[]){
 					}
 				}
 			}
+			if(stdout !=1){progressBar(pos, getFileSize(ptrInputFile)-2);}
 		}
 		memset(bin, 0, strlen(bin));
 		fclose(ptrInputFile);
@@ -310,6 +351,7 @@ int main(int argc, char *argv[]){
 		return 0;
 	}
 
+	//Encode Handler
 	if ((encode == 1) && (decode == 0)){
 	for (pos = 0; pos <= getFileSize(ptrInputFile); pos++){
 		fseek(ptrInputFile,sizeof(struct byteStruct)*pos, SEEK_SET);

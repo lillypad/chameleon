@@ -29,12 +29,15 @@
 |------------------------------------------------|
 
 About Chameleon:
-- Version: 0.1b
+- Version: 0.2b
 - Author: Lilly Chalupowski
 
 Disclaimer: Use this program at your own risk
 
-Build Notes:
+Build Notes 0.2b:
+	- Code Cleanup (needs more work)
+	- Added random key generator
+Build Notes 0.1b:
 	- Added custom character support
 	- Added encode support
 	- Added decode support
