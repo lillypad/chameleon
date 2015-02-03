@@ -1,5 +1,5 @@
 #CHAMELEON<br />
-
+![alt tag](https://raw.githubusercontent.com/lillypad/chameleon/master/chameleon.png)
 About Chameleon:<br />
 - Version: 0.2b<br />
 - Author: Lilly Chalupowski<br />
