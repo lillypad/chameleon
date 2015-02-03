@@ -23,7 +23,7 @@ void usage(){
 	printf("/@    ~-.\n");
 	printf("\\/ __ .- |\n");
 	printf(" // //  @\n");
-	printf("Version: 0.1b\n");
+	printf("Version: 0.2b\n");
 	printf("Usage: chameleon (--encode || --decode) -i input_file -o output_file --std-out --ccs --about --rand_key\n--encode   = encode mode\n--decode   = decode mode\n-i         = input file\n-o         = output file\n-ccs       = custom character set (64 unique chars)\n--about    = about screen\n--rand_key = Generates random base 64 key\n");
 }
 
@@ -32,7 +32,7 @@ void about(){
 	printf("/@    ~-.\n");
 	printf("\\/ __ .- |\n");
 	printf(" // //  @\n");
-	printf("Version: 0.1b\n");
+	printf("Version: 0.2b\n");
 	printf("Author: Lilly Chalupowski\n");
 	printf("Company: ARC Network Security\n");
 	printf("Disclaimer: Use at your own risk\n");
