@@ -29,7 +29,7 @@
 |------------------------------------------------|
 
 About Chameleon:
-- Version: 0.2b
+- Version:0.2b
 - Author: Lilly Chalupowski
 
 Disclaimer: Use this program at your own risk
