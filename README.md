@@ -1,6 +1,4 @@
-###########<br />
-#CHAMELEON#<br />
-###########<br />
+#CHAMELEON<br />
 <br />
 About Chameleon:<br />
 - Version: 0.2b<br />
