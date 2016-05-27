@@ -167,12 +167,12 @@ int main(int argc, char *argv[]){
 	const char *strTemp;
 	char bin[8];
 	//Clear garbage data
-	memset(bin, 0, strlen(bin));
+	memset(bin, 0, sizeof(bin));
 
 	char binaryByte[6];
 	char chrOutputFile;
 	//Clear garbage data
-	memset(binaryByte, 0, strlen(binaryByte));
+	memset(binaryByte, 0, sizeof(binaryByte));
 	int pos = 0;
 	FILE *ptrInputFile;
 	FILE *ptrOutputFile;
@@ -336,14 +336,14 @@ int main(int argc, char *argv[]){
 							if (outfile == 1){
 								fwrite (&dec, 1, 1, ptrOutputFile);
 							}
-							memset(bin, 0, strlen(bin));
+							memset(bin, 0, sizeof(bin));
 						}
 					}
 				}
 			}
 			if(stdout !=1){progressBar(pos, getFileSize(ptrInputFile)-2);}
 		}
-		memset(bin, 0, strlen(bin));
+		memset(bin, 0, sizeof(bin));
 		fclose(ptrInputFile);
 		if (outfile == 1){
 			fclose(ptrOutputFile);
@@ -378,7 +378,7 @@ int main(int argc, char *argv[]){
 						}
 					}
 				}
-				memset(binaryByte, 0, strlen(binaryByte));
+				memset(binaryByte, 0, sizeof(binaryByte));
 			}
 		}
 	}
@@ -397,7 +397,7 @@ int main(int argc, char *argv[]){
 	if (stdout == 1){
 		printf("\n");
 	}
-	memset(binaryByte, 0, strlen(binaryByte));
+	memset(binaryByte, 0, sizeof(binaryByte));
 	fclose(ptrInputFile);
 	}
 	return 0;
