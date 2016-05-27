@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "thpool.h"
 
 //Single Byte Data Structure
 struct byteStruct{char byte;};
