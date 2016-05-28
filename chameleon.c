@@ -4,10 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <byteswap.h>
 #include "thpool.h"
+
+#define BYTE_SHIFT 0x08
+#define MASK_6BIT  0x3f
 
 //Single Byte Data Structure
 struct byteStruct{char byte;};
+
+//New struct
+typedef struct { char pad; char byte[3]; } byteStruct2;
 
 //Binary to integer
 int bin2int(const char *str){
@@ -178,6 +185,8 @@ int main(int argc, char *argv[]){
 	FILE *ptrInputFile;
 	FILE *ptrOutputFile;
 	struct byteStruct singleByte;
+	byteStruct2 threeBytes;
+	memset(&threeBytes, 0, sizeof(threeBytes));
 	int stdout = 0;
 	int infile = 0;
 	int outfile = 0;
@@ -353,53 +362,88 @@ int main(int argc, char *argv[]){
 	}
 
 	//Encode Handler
+	int val;
 	if ((encode == 1) && (decode == 0)){
-	for (pos = 0; pos <= getFileSize(ptrInputFile); pos++){
-		fseek(ptrInputFile,sizeof(struct byteStruct)*pos, SEEK_SET);
-		fread(&singleByte,sizeof(struct byteStruct),1,ptrInputFile);
-		for (i = 7; i >= 0; i--){
-			if (singleByte.byte & (1 << i)){
-				strcat(binaryByte, "1");
-			}
-			else{
-				strcat(binaryByte,"0");
-			}
-			if (strlen(binaryByte) == 6){
-				for (j = 0; j <= 63; j++){
-					if(strcmp(binaryByte, base64binary[j]) == 0){
-						if (stdout == 1){
-							printf("%c", base64[j]);
-						}
-						if (outfile == 1){
-							chrOutputFile = base64[j];
-							if (stdout != 1){
-								progressBar(pos, getFileSize(ptrInputFile));
-							}
-							fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
-						}
-					}
-				}
-				memset(binaryByte, 0, sizeof(binaryByte));
-			}
+	for (pos = 0; (pos + 3) <= getFileSize(ptrInputFile); pos += 3){
+		fseek(ptrInputFile, pos, SEEK_SET);
+		fread(&(threeBytes.byte), sizeof(char) * 3, 1, ptrInputFile);
+		for (i = 0; i < 4; i++){
+
+		   val = *(int*)&threeBytes;
+		   val = bswap_32(val);
+		   val = val >> ((3 - i) * 6);
+		   val &= MASK_6BIT;
+		   if (stdout == 1){
+	                printf("%c", base64[val]);
+                   }
+                   if (outfile == 1){
+        	        chrOutputFile = base64[val];
+                	if (stdout != 1){
+                        	progressBar(pos, getFileSize(ptrInputFile));
+                        }
+                        fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
+                   }
 		}
 	}
 	//Remainder Bit Handler
 	//This is good practice and the default base64 encoder doesn't have this feature ;) n00bs :p
-	if (strlen(binaryByte) >= 1){
-		if (stdout == 1){
-			printf("%c",base64[bin2dec(atoi(binaryByte))]);
-		}
-		if (outfile == 1){
-			chrOutputFile = base64[bin2dec(atoi(binaryByte))];
-			fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
-		}
+	j = getFileSize(ptrInputFile) % 3;
+	if (j > 0){
+		memset(&threeBytes, 0, sizeof(threeBytes));
+		fseek(ptrInputFile, getFileSize(ptrInputFile) - j, SEEK_SET);
+		fread(&(threeBytes.byte), sizeof(char), j, ptrInputFile);
+
+		for (i = 0; i < 4; i++){
+		   val = *(int*)&threeBytes;
+                   val = bswap_32(val);
+
+                   switch(i){
+                   case 0:
+                        val = val >> (BYTE_SHIFT * 2);
+			val = val >> 2;
+                        break;
+                   case 1:
+			if (j > 1){
+                           val = val >> BYTE_SHIFT;
+			   val = val >> 4;
+			}
+                        break;
+                   case 2:
+			if (j > 1){
+                           val = val >> 6;
+			}
+                        break;
+		   case 3:
+			/*
+			 *  Here we have to handle the padding the way it is handled by the original decoder for backward compatibility.
+			 *  Original base64 encoder uses '=' as padding character for each pairs of null bits used to encode the last 6 bits.
+			 *  In this design, we need to append the int() representation of the last bits without padding AFTER the last round with null bits padding.
+			 *  Perhaps this could be optimized by either removing the last round, or going toward the original padding format.
+			 */
+			if (j == 1){
+			   val = val >> (BYTE_SHIFT * 2);
+			   val &= 0x03;
+			} else {
+			   val = val >> BYTE_SHIFT;
+			   val &= 0x0f;
+			}
+                   }
+		   val &= MASK_6BIT;
+                   if (stdout != 1){
+                        printf("%c", base64[val]);
+                   }
+                   if (outfile == 1){
+                        chrOutputFile = base64[val];
+                        if (stdout != 1){
+                                progressBar(pos, getFileSize(ptrInputFile));
+                        }
+                        fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
+                   }
+                }
 
 	}
-	if (stdout == 1){
-		printf("\n");
-	}
-	memset(binaryByte, 0, sizeof(binaryByte));
 	fclose(ptrInputFile);
+	fclose(ptrOutputFile);
 	}
 	return 0;
 }
