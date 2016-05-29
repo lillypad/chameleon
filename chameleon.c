@@ -7,14 +7,16 @@
 #include <byteswap.h>
 #include "thpool.h"
 
-#define BYTE_SHIFT 0x08
-#define MASK_6BIT  0x3f
+#define BYTE_SHIFT  0x08
+#define MASK_6BIT   0x3f
+#define MAX_THREADS 0x14
 
 //Single Byte Data Structure
 struct byteStruct{char byte;};
 
 //New struct
 typedef struct { char pad; char byte[3]; } byteStruct2;
+typedef struct { FILE* hFile; uint pos; byteStruct2 threeBytes; } ThPoolArgs, *PThPoolArgs;
 
 //Binary to integer
 int bin2int(const char *str){
@@ -166,14 +168,14 @@ const char *rand_key(){
 	return final;
 }
 
-void Encoder(FILE** hFile, uint pos, byteStruct2 threeBytes)
+void Encoder(PThPoolArgs pthPoolArgs)
 {
 	int val, i;
 	char output[4];
 
         for (i = 0; i < 4; i++){
 
-          val = *(int*)&threeBytes;
+          val = *(int*)&(pthPoolArgs->threeBytes);
           val = bswap_32(val);
           val = val >> ((3 - i) * 6);
           val &= MASK_6BIT;
@@ -181,11 +183,11 @@ void Encoder(FILE** hFile, uint pos, byteStruct2 threeBytes)
 	}
         //if (stdout == 1)
         //  printf("%c", base64[val]);
-        if (hFile != NULL){
+        if (pthPoolArgs->hFile != NULL){
           //  progressBar(pos, getFileSize(ptrInputFile));
         }
-	fseek (*hFile, pos, SEEK_SET);
-	fwrite (&output, 4, 1, *hFile);
+	fseek (pthPoolArgs->hFile, pthPoolArgs->pos, SEEK_SET);
+	fwrite (&output, 4, 1, pthPoolArgs->hFile);
 }
 
 //Main Program
@@ -387,12 +389,22 @@ int main(int argc, char *argv[]){
 	}
 
 	//Encode Handler
+	PThPoolArgs pthPoolArgs = (PThPoolArgs)malloc(sizeof(ThPoolArgs));
+	memset(pthPoolArgs, 0, sizeof(ThPoolArgs));
+	pthPoolArgs->hFile = ptrOutputFile;
+
 	if ((encode == 1) && (decode == 0)){
-	for (pos = 0; (pos + 3) <= getFileSize(ptrInputFile); pos += 3){
+	  threadpool thpool = thpool_init(MAX_THREADS);
+	  for (pos = 0; (pos + 3) <= getFileSize(ptrInputFile); pos += 3){
 		fseek(ptrInputFile, pos, SEEK_SET);
 		fread(&(threeBytes.byte), sizeof(char) * 3, 1, ptrInputFile);
-		Encoder(&ptrOutputFile, pos, threeBytes);
-	}
+		//Encoder(&ptrOutputFile, pos, threeBytes);
+		pthPoolArgs->pos = pos;
+		pthPoolArgs->threeBytes = threeBytes;
+		thpool_add_work(thpool, (void*)Encoder, pthPoolArgs);
+	  }
+	  thpool_wait(thpool);
+	  free(pthPoolArgs);
 	//Remainder Bit Handler
 	//This is good practice and the default base64 encoder doesn't have this feature ;) n00bs :p
 	int val;
