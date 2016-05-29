@@ -25,6 +25,9 @@ int bin2int(const char *str){
 	return val;
 }
 
+// Static Global accessible values
+static const char base64[64] = {'A', 'B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/'};
+
 //Usage Function
 void usage(){
 	printf("  ____\n");
@@ -161,6 +164,28 @@ const char *rand_key(){
 		final[i] = base64custom[i];
 	}
 	return final;
+}
+
+void Encoder(FILE** hFile, uint pos, byteStruct2 threeBytes)
+{
+	int val, i;
+	char output[4];
+
+        for (i = 0; i < 4; i++){
+
+          val = *(int*)&threeBytes;
+          val = bswap_32(val);
+          val = val >> ((3 - i) * 6);
+          val &= MASK_6BIT;
+	  output[i] = base64[val];
+	}
+        //if (stdout == 1)
+        //  printf("%c", base64[val]);
+        if (hFile != NULL){
+          //  progressBar(pos, getFileSize(ptrInputFile));
+        }
+	fseek (*hFile, pos, SEEK_SET);
+	fwrite (&output, 4, 1, *hFile);
 }
 
 //Main Program
@@ -362,31 +387,15 @@ int main(int argc, char *argv[]){
 	}
 
 	//Encode Handler
-	int val;
 	if ((encode == 1) && (decode == 0)){
 	for (pos = 0; (pos + 3) <= getFileSize(ptrInputFile); pos += 3){
 		fseek(ptrInputFile, pos, SEEK_SET);
 		fread(&(threeBytes.byte), sizeof(char) * 3, 1, ptrInputFile);
-		for (i = 0; i < 4; i++){
-
-		   val = *(int*)&threeBytes;
-		   val = bswap_32(val);
-		   val = val >> ((3 - i) * 6);
-		   val &= MASK_6BIT;
-		   if (stdout == 1){
-	                printf("%c", base64[val]);
-                   }
-                   if (outfile == 1){
-        	        chrOutputFile = base64[val];
-                	if (stdout != 1){
-                        	progressBar(pos, getFileSize(ptrInputFile));
-                        }
-                        fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
-                   }
-		}
+		Encoder(&ptrOutputFile, pos, threeBytes);
 	}
 	//Remainder Bit Handler
 	//This is good practice and the default base64 encoder doesn't have this feature ;) n00bs :p
+	int val;
 	j = getFileSize(ptrInputFile) % 3;
 	if (j > 0){
 		memset(&threeBytes, 0, sizeof(threeBytes));
