@@ -4,9 +4,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <byteswap.h>
+#include <pthread.h>
+#include "thpool.h"
+
+#define BYTE_SHIFT  0x08
+#define MASK_6BIT   0x3f
+#define MAX_THREADS 0x14
 
 //Single Byte Data Structure
 struct byteStruct{char byte;};
+
+//New struct
+typedef struct { char pad; char byte[3]; } byteStruct2;
+typedef struct { FILE* hFile; uint pos; byteStruct2 threeBytes; } ThPoolArgs, *PThPoolArgs;
+
+// Mutex
+static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 
 //Binary to integer
 int bin2int(const char *str){
@@ -16,6 +30,9 @@ int bin2int(const char *str){
 	}
 	return val;
 }
+
+// Static Global accessible values
+static const char base64[64] = {'A', 'B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/'};
 
 //Usage Function
 void usage(){
@@ -155,6 +172,32 @@ const char *rand_key(){
 	return final;
 }
 
+void Encoder(PThPoolArgs pthPoolArgs)
+{
+	//printf("Now processing message at pos %d.\n", pthPoolArgs->pos);
+	int val, i;
+	char output[4];
+
+        for (i = 0; i < 4; i++){
+
+          val = *(int*)&(pthPoolArgs->threeBytes);
+          val = bswap_32(val);
+          val = val >> ((3 - i) * 6);
+          val &= MASK_6BIT;
+	  output[i] = base64[val];
+	}
+        //if (stdout == 1)
+        //  printf("%c", base64[val]);
+        if (pthPoolArgs->hFile != NULL){
+          //  progressBar(pos, getFileSize(ptrInputFile));
+	  pthread_mutex_lock(&mtx);
+	  fseek (pthPoolArgs->hFile, (pthPoolArgs->pos / 3 * 4), SEEK_SET);
+	  fwrite (&output, 4, 1, pthPoolArgs->hFile);
+	  pthread_mutex_unlock(&mtx);
+	}
+	free(pthPoolArgs);
+}
+
 //Main Program
 int main(int argc, char *argv[]){
 	//Global Variables
@@ -167,16 +210,18 @@ int main(int argc, char *argv[]){
 	const char *strTemp;
 	char bin[8];
 	//Clear garbage data
-	memset(bin, 0, strlen(bin));
+	memset(bin, 0, sizeof(bin));
 
 	char binaryByte[6];
 	char chrOutputFile;
 	//Clear garbage data
-	memset(binaryByte, 0, strlen(binaryByte));
+	memset(binaryByte, 0, sizeof(binaryByte));
 	int pos = 0;
 	FILE *ptrInputFile;
 	FILE *ptrOutputFile;
 	struct byteStruct singleByte;
+	byteStruct2 threeBytes;
+	memset(&threeBytes, 0, sizeof(threeBytes));
 	int stdout = 0;
 	int infile = 0;
 	int outfile = 0;
@@ -336,14 +381,14 @@ int main(int argc, char *argv[]){
 							if (outfile == 1){
 								fwrite (&dec, 1, 1, ptrOutputFile);
 							}
-							memset(bin, 0, strlen(bin));
+							memset(bin, 0, sizeof(bin));
 						}
 					}
 				}
 			}
 			if(stdout !=1){progressBar(pos, getFileSize(ptrInputFile)-2);}
 		}
-		memset(bin, 0, strlen(bin));
+		memset(bin, 0, sizeof(bin));
 		fclose(ptrInputFile);
 		if (outfile == 1){
 			fclose(ptrOutputFile);
@@ -352,53 +397,85 @@ int main(int argc, char *argv[]){
 	}
 
 	//Encode Handler
+	PThPoolArgs pthPoolArgs;
+
 	if ((encode == 1) && (decode == 0)){
-	for (pos = 0; pos <= getFileSize(ptrInputFile); pos++){
-		fseek(ptrInputFile,sizeof(struct byteStruct)*pos, SEEK_SET);
-		fread(&singleByte,sizeof(struct byteStruct),1,ptrInputFile);
-		for (i = 7; i >= 0; i--){
-			if (singleByte.byte & (1 << i)){
-				strcat(binaryByte, "1");
-			}
-			else{
-				strcat(binaryByte,"0");
-			}
-			if (strlen(binaryByte) == 6){
-				for (j = 0; j <= 63; j++){
-					if(strcmp(binaryByte, base64binary[j]) == 0){
-						if (stdout == 1){
-							printf("%c", base64[j]);
-						}
-						if (outfile == 1){
-							chrOutputFile = base64[j];
-							if (stdout != 1){
-								progressBar(pos, getFileSize(ptrInputFile));
-							}
-							fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
-						}
-					}
-				}
-				memset(binaryByte, 0, strlen(binaryByte));
-			}
-		}
-	}
+	  threadpool thpool = thpool_init(MAX_THREADS);
+	  for (pos = 0; (pos + 3) <= getFileSize(ptrInputFile); pos += 3){
+		pthPoolArgs = (PThPoolArgs)malloc(sizeof(ThPoolArgs));
+		memset(pthPoolArgs, 0, sizeof(ThPoolArgs));
+	        pthPoolArgs->hFile = ptrOutputFile;
+		fseek(ptrInputFile, pos, SEEK_SET);
+		fread(&(threeBytes.byte), sizeof(char) * 3, 1, ptrInputFile);
+		//Encoder(&ptrOutputFile, pos, threeBytes);
+		pthPoolArgs->pos = pos;
+		memcpy(&(pthPoolArgs->threeBytes), &threeBytes, sizeof(threeBytes));
+		thpool_add_work(thpool, (void*)Encoder, pthPoolArgs);
+	  }
+	  thpool_wait(thpool);
 	//Remainder Bit Handler
 	//This is good practice and the default base64 encoder doesn't have this feature ;) n00bs :p
-	if (strlen(binaryByte) >= 1){
-		if (stdout == 1){
-			printf("%c",base64[bin2dec(atoi(binaryByte))]);
-		}
-		if (outfile == 1){
-			chrOutputFile = base64[bin2dec(atoi(binaryByte))];
-			fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
-		}
+	int val;
+	j = getFileSize(ptrInputFile) % 3;
+	if (j > 0){
+		memset(&threeBytes, 0, sizeof(threeBytes));
+		fseek(ptrInputFile, getFileSize(ptrInputFile) - j, SEEK_SET);
+		fread(&(threeBytes.byte), sizeof(char), j, ptrInputFile);
+
+		for (i = 0; i < 4; i++){
+		   val = *(int*)&threeBytes;
+                   val = bswap_32(val);
+
+                   switch(i){
+                   case 0:
+                        val = val >> (BYTE_SHIFT * 2);
+			val = val >> 2;
+                        break;
+                   case 1:
+			if (j > 1){
+                           val = val >> BYTE_SHIFT;
+			   val = val >> 4;
+			}
+                        break;
+                   case 2:
+			if (j > 1){
+                           val = val >> 6;
+			}
+                        break;
+		   case 3:
+			/*
+			 *  Here we have to handle the padding the way it is handled by the original decoder for backward compatibility.
+			 *  Original base64 encoder uses '=' as padding character for each pairs of null bits used to encode the last 6 bits.
+			 *  In this design, we need to append the int() representation of the last bits without padding AFTER the last round with null bits padding.
+			 *  Perhaps this could be optimized by either removing the last round, or going toward the original padding format.
+			 */
+			if (j == 1){
+			   val = val >> (BYTE_SHIFT * 2);
+			   val &= 0x03;
+			} else {
+			   val = val >> BYTE_SHIFT;
+			   val &= 0x0f;
+			}
+                   }
+		   val &= MASK_6BIT;
+                   if (stdout == 1){
+                        printf("%c", base64[val]);
+                   }
+                   if (outfile == 1){
+                        chrOutputFile = base64[val];
+                        if (stdout != 1){
+                                progressBar(pos, getFileSize(ptrInputFile));
+                        }
+			pthread_mutex_lock(&mtx);
+			fseek(ptrOutputFile, 0, SEEK_END);
+                        fwrite (&chrOutputFile, 1, 1, ptrOutputFile);
+			pthread_mutex_unlock(&mtx);
+                   }
+                }
 
 	}
-	if (stdout == 1){
-		printf("\n");
-	}
-	memset(binaryByte, 0, strlen(binaryByte));
 	fclose(ptrInputFile);
+	fclose(ptrOutputFile);
 	}
 	return 0;
 }
