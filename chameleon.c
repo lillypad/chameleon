@@ -185,9 +185,9 @@ void Encoder(PThPoolArgs pthPoolArgs)
         //  printf("%c", base64[val]);
         if (pthPoolArgs->hFile != NULL){
           //  progressBar(pos, getFileSize(ptrInputFile));
-        }
-	fseek (pthPoolArgs->hFile, pthPoolArgs->pos, SEEK_SET);
-	fwrite (&output, 4, 1, pthPoolArgs->hFile);
+	  fseek (pthPoolArgs->hFile, pthPoolArgs->pos, SEEK_SET);
+	  fwrite (&output, 4, 1, pthPoolArgs->hFile);
+	}
 }
 
 //Main Program
@@ -450,7 +450,7 @@ int main(int argc, char *argv[]){
 			}
                    }
 		   val &= MASK_6BIT;
-                   if (stdout != 1){
+                   if (stdout == 1){
                         printf("%c", base64[val]);
                    }
                    if (outfile == 1){
